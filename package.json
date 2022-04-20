@@ -1,0 +1,8 @@
+{
+  "author": "Phil Bredeson (https://github.com/pBread)",
+  "name": "chat-channel-migration",
+  "scripts": {
+    "start": ""
+  },
+  "version": "1.0.0"
+}
