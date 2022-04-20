@@ -18,10 +18,14 @@ async function updateChannel(channelSid: string) {
 }
 
 (async () => {
+  console.log("Starting");
+
   const publicChannelSids = await client.chat.v2
     .services("ISXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     .channels.list({ type: "public" })
     .then((channels) => channels.map((channel) => channel.sid));
+
+  console.log(`Channel Count: ${publicChannelSids.length}`);
 
   for (const channelSid of publicChannelSids) {
     updateChannel(channelSid);
