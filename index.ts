@@ -1,3 +1,4 @@
+import { channel } from "diagnostics_channel";
 import dotenv from "dotenv";
 import twilio from "twilio";
 
@@ -7,7 +8,13 @@ const { ACCOUNT_SID, AUTH_TOKEN } = process.env;
 const client = twilio(ACCOUNT_SID, AUTH_TOKEN);
 
 async function updateChannel(channelSid: string) {
-  // update your channel to private here
+  // You may need to re-write this. I haven't been able to test it.
+  // Docs: https://www.twilio.com/docs/conversations/api/chat-channel-migration-resource
+
+  await client.chat
+    .channels(channelSid)
+    .update({ type: "private" })
+    .then(() => console.log(`updated: ${channelSid}`));
 }
 
 (async () => {
