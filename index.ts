@@ -10,11 +10,10 @@ const client = twilio(ACCOUNT_SID, AUTH_TOKEN);
 async function updateChannel(channelSid: string) {
   // You may need to re-write this. I haven't been able to test it.
   // Docs: https://www.twilio.com/docs/conversations/api/chat-channel-migration-resource
-
-  await client.chat
-    .channels(channelSid)
-    .update({ type: "private" })
-    .then(() => console.log(`updated: ${channelSid}`));
+  //   await client.chat
+  //     .channels(channelSid)
+  //     .update({ type: "private" })
+  //     .then(() => console.log(`updated: ${channelSid}`));
 }
 
 (async () => {
