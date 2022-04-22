@@ -10,6 +10,7 @@ const channelParkingLot = [];
 const channelConnections = new Set();
 
 const MAX_CONNECTIONS = 20;
+const INTERVAL_MS = 10;
 
 let isStarted = false;
 
@@ -56,5 +57,5 @@ function startInterval() {
     if (channelConnections.size < MAX_CONNECTIONS) {
       updateChannel(channelParkingLot.pop());
     }
-  }, 10);
+  }, INTERVAL_MS);
 }
