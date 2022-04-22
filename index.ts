@@ -1,4 +1,3 @@
-import { channel } from "diagnostics_channel";
 import dotenv from "dotenv";
 import twilio from "twilio";
 
@@ -7,31 +6,50 @@ dotenv.config();
 const { ACCOUNT_SID, AUTH_TOKEN } = process.env;
 const client = twilio(ACCOUNT_SID, AUTH_TOKEN);
 
+const channelParkingLot = [];
+const channelConnections = new Set();
+
+const MAX_CONNECTIONS = 20;
+
+let isStarted = false;
+
+let counter = 0;
+
+(async () => {
+  client.chat.v2
+    .services("ISXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    .channels.each({ type: "public" }, (channel) => {
+      channelParkingLot.push(channel.sid);
+      if (!isStarted) startInterval();
+    });
+})();
+
 async function updateChannel(channelSid: string) {
   // You may need to re-write this. I haven't been able to test it.
   // Docs: https://www.twilio.com/docs/conversations/api/chat-channel-migration-resource
-  //   await client.chat
-  //     .channels(channelSid)
-  //     .update({ type: "private" })
-  //     .then(() => console.log(`updated: ${channelSid}`));
+
+  channelConnections.add(channelSid);
+  await client.chat.channels(channelSid).update({ type: "private" });
+  channelConnections.delete(channelSid);
+
+  counter++;
 }
 
-(async () => {
-  console.log("Starting");
+function print() {
+  process.stdout.cursorTo(0);
+  process.stdout.write(
+    `Updated: ${counter}; Parking Lot: ${channelParkingLot.length}; Connections: ${channelConnections.size}`
+  );
+}
 
-  const publicChannelSids = await client.chat.v2
-    .services("ISXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    .channels.list({ type: "public" })
-    .then((channels) => channels.map((channel) => channel.sid));
+function startInterval() {
+  isStarted = true;
+  setInterval(() => {
+    print();
 
-  console.log(`Channel Count: ${publicChannelSids.length}`);
-
-  for (const channelSid of publicChannelSids) {
-    updateChannel(channelSid);
-    await wait();
-  }
-})();
-
-async function wait(ms = 1000) {
-  return new Promise((resolve) => setTimeout(() => resolve(null), ms));
+    if (channelParkingLot.length === 0) return;
+    if (channelConnections.size < MAX_CONNECTIONS) {
+      updateChannel(channelParkingLot.pop());
+    }
+  }, 100);
 }
