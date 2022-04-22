@@ -14,14 +14,20 @@ const MAX_CONNECTIONS = 20;
 let isStarted = false;
 
 let counter = 0;
+const start = Date.now();
 
 (async () => {
-  client.chat.v2
-    .services("ISXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    .channels.each({ type: "public" }, (channel) => {
-      channelParkingLot.push(channel.sid);
-      if (!isStarted) startInterval();
-    });
+  client.messages.each((channel) => {
+    channelParkingLot.push(channel.sid);
+    if (!isStarted) startInterval();
+  });
+
+  // client.chat.v2
+  //   .services("ISXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+  //   .channels.each({ type: "public" }, (channel) => {
+  //     channelParkingLot.push(channel.sid);
+  //     if (!isStarted) startInterval();
+  //   });
 })();
 
 async function updateChannel(channelSid: string) {
@@ -29,7 +35,8 @@ async function updateChannel(channelSid: string) {
   // Docs: https://www.twilio.com/docs/conversations/api/chat-channel-migration-resource
 
   channelConnections.add(channelSid);
-  await client.chat.channels(channelSid).update({ type: "private" });
+  await client.messages(channelSid).fetch();
+  // await client.chat.channels(channelSid).update({ type: "private" });
   channelConnections.delete(channelSid);
 
   counter++;
@@ -38,7 +45,11 @@ async function updateChannel(channelSid: string) {
 function print() {
   process.stdout.cursorTo(0);
   process.stdout.write(
-    `Updated: ${counter}; Parking Lot: ${channelParkingLot.length}; Connections: ${channelConnections.size}`
+    `Updated: ${counter}; Parking Lot: ${
+      channelParkingLot.length
+    }; Connections: ${channelConnections.size}; Seconds: ${
+      (Date.now() - start) / 1000
+    }`
   );
 }
 
@@ -51,5 +62,5 @@ function startInterval() {
     if (channelConnections.size < MAX_CONNECTIONS) {
       updateChannel(channelParkingLot.pop());
     }
-  }, 100);
+  }, 10);
 }
