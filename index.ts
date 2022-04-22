@@ -17,17 +17,12 @@ let counter = 0;
 const start = Date.now();
 
 (async () => {
-  client.messages.each((channel) => {
-    channelParkingLot.push(channel.sid);
-    if (!isStarted) startInterval();
-  });
-
-  // client.chat.v2
-  //   .services("ISXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-  //   .channels.each({ type: "public" }, (channel) => {
-  //     channelParkingLot.push(channel.sid);
-  //     if (!isStarted) startInterval();
-  //   });
+  client.chat.v2
+    .services("ISXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    .channels.each({ type: "public" }, (channel) => {
+      channelParkingLot.push(channel.sid);
+      if (!isStarted) startInterval();
+    });
 })();
 
 async function updateChannel(channelSid: string) {
@@ -35,8 +30,7 @@ async function updateChannel(channelSid: string) {
   // Docs: https://www.twilio.com/docs/conversations/api/chat-channel-migration-resource
 
   channelConnections.add(channelSid);
-  await client.messages(channelSid).fetch();
-  // await client.chat.channels(channelSid).update({ type: "private" });
+  await client.chat.channels(channelSid).update({ type: "private" });
   channelConnections.delete(channelSid);
 
   counter++;
