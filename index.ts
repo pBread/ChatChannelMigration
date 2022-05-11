@@ -36,10 +36,12 @@ const limit = pRateLimit({
         }).catch((error) => {
           console.error(error);
           done();
+          process.exit();
         });
       });
   } catch (error) {
     console.error(error);
+    process.exit();
   }
 })();
 
