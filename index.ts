@@ -8,37 +8,51 @@ dotenv.config();
 const { ACCOUNT_SID, AUTH_TOKEN, CHAT_SVC_SID } = process.env;
 const client = twilio(ACCOUNT_SID, AUTH_TOKEN);
 
-const MAX_CONCURRENCY = 50;
+const CONCURRENCY = 100;
+const MAX_CONCURRENCY = 200;
 
 let counter = 0;
-let limitor = 0;
 
 let concurrency = 0;
 const start = Date.now();
+let channelSids = [];
 
 const limit = pRateLimit({
-  concurrency: MAX_CONCURRENCY,
+  concurrency: CONCURRENCY,
   interval: 1000,
   rate: 100,
 });
 
-(async () => {
-  for (let i = 0; i < 10000; i++) {
-    const channelSids = await client.chat.v2
-      .services(CHAT_SVC_SID)
-      .channels.list({ limit: MAX_CONCURRENCY, type: "public" })
-      .then((channels) => channels.map(({ sid }) => sid));
+let isDone = false;
+let almostDone = false;
 
-    for (const sid of channelSids) {
-      if (concurrency > MAX_CONCURRENCY) process.exit();
-      try {
-        await Promise.all(
-          channelSids.map((sid) => limit(() => updateChannel(sid)))
-        );
-      } catch (error) {
-        console.error(error);
-        break;
-      }
+(async () => {
+  while (!isDone) {
+    if (channelSids.length < 1000 && !almostDone) {
+      const _channelSids = await client.chat.v2
+        .services(CHAT_SVC_SID)
+        .channels.list({ limit: CONCURRENCY * 2, type: "public" })
+        .then((channels) => channels.map(({ sid }) => sid));
+
+      if (_channelSids.length === 0) almostDone = true;
+      else channelSids = channelSids.concat(_channelSids);
+    }
+
+    if (almostDone && channelSids.length === 0) {
+      isDone = true;
+      break;
+    }
+
+    if (concurrency > MAX_CONCURRENCY) process.exit();
+    try {
+      await Promise.all(
+        channelSids
+          .splice(0, CONCURRENCY)
+          .map((sid) => limit(() => updateChannel(sid)))
+      );
+    } catch (error) {
+      console.error(error);
+      break;
     }
   }
 })();
@@ -52,14 +66,10 @@ function print() {
 
   process.stdout.cursorTo(0);
   process.stdout.write(
-    `Concurrency: ${concurrency}; Updated ${counter}; limitor ${limitor}; Seconds: ${seconds.toLocaleString()}; Updates/Sec: ${(
+    `Concurrency: ${concurrency}; Updated ${counter}; Seconds: ${seconds.toLocaleString()}; Updates/Sec: ${(
       counter / seconds
     ).toFixed(2)};`
   );
-}
-
-async function sleep(ms = 1000) {
-  await new Promise((resolve) => setTimeout(() => resolve(null), ms));
 }
 
 async function updateChannel(channelSid: string) {
