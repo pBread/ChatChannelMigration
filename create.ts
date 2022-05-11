@@ -18,7 +18,7 @@ const start = Date.now();
 const limit = pRateLimit({
   concurrency: 20,
   interval: 1000,
-  rate: 300,
+  rate: 100,
 });
 
 (async () => {

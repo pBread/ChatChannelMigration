@@ -27,12 +27,15 @@ const limit = pRateLimit({
   try {
     client.chat.v2
       .services(CHAT_SVC_SID)
-      .channels.each({ type: "public" }, ({ sid }) => {
+      .channels.each({ type: "public" }, ({ sid }, done) => {
         if (concurrency > MAX_CONCURRENCY) process.exit();
         limit(async () => {
           queued++;
           await updateChannel(sid);
           queued--;
+        }).catch((error) => {
+          console.error(error);
+          done();
         });
       });
   } catch (error) {
