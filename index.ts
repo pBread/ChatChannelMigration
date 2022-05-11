@@ -11,49 +11,32 @@ const client = twilio(ACCOUNT_SID, AUTH_TOKEN);
 const CONCURRENCY = 100;
 const MAX_CONCURRENCY = 200;
 
-let counter = 0;
+let updated = 0;
+let queued = 0;
 
 let concurrency = 0;
 const start = Date.now();
-let channelSids = [];
 
 const limit = pRateLimit({
   concurrency: CONCURRENCY,
   interval: 1000,
-  rate: 100,
+  rate: 200,
 });
 
-let isDone = false;
-let almostDone = false;
-
 (async () => {
-  while (!isDone) {
-    if (channelSids.length < 1000 && !almostDone) {
-      const _channelSids = await client.chat.v2
-        .services(CHAT_SVC_SID)
-        .channels.list({ limit: CONCURRENCY * 2, type: "public" })
-        .then((channels) => channels.map(({ sid }) => sid));
-
-      if (_channelSids.length === 0) almostDone = true;
-      else channelSids = channelSids.concat(_channelSids);
-    }
-
-    if (almostDone && channelSids.length === 0) {
-      isDone = true;
-      break;
-    }
-
-    if (concurrency > MAX_CONCURRENCY) process.exit();
-    try {
-      await Promise.all(
-        channelSids
-          .splice(0, CONCURRENCY)
-          .map((sid) => limit(() => updateChannel(sid)))
-      );
-    } catch (error) {
-      console.error(error);
-      break;
-    }
+  try {
+    client.chat.v2
+      .services(CHAT_SVC_SID)
+      .channels.each({ type: "public" }, ({ sid }) => {
+        if (concurrency > MAX_CONCURRENCY) process.exit();
+        limit(async () => {
+          queued++;
+          await updateChannel(sid);
+          queued--;
+        });
+      });
+  } catch (error) {
+    console.error(error);
   }
 })();
 
@@ -64,11 +47,11 @@ setInterval(() => {
 function print() {
   const seconds = (Date.now() - start) / 1000;
 
-  process.stdout.cursorTo(0);
+  console.clear();
   process.stdout.write(
-    `Concurrency: ${concurrency}; Updated ${counter}; Seconds: ${seconds.toLocaleString()}; Updates/Sec: ${(
-      counter / seconds
-    ).toFixed(2)};`
+    `Concurrency: ${concurrency}; Updated ${updated}; Seconds: ${seconds.toLocaleString()}; Updates/Sec: ${(
+      updated / seconds
+    ).toFixed(2)}; Queued: ${queued}`
   );
 }
 
@@ -81,7 +64,7 @@ async function updateChannel(channelSid: string) {
     { auth: { username: ACCOUNT_SID, password: AUTH_TOKEN } }
   );
 
-  counter++;
+  updated++;
   concurrency = Number(result.headers["twilio-concurrent-requests"]);
 
   return result;
