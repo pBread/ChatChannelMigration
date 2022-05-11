@@ -16,7 +16,6 @@
   },
   "name": "chat-channel-migration",
   "scripts": {
-    "dev": "ts-node dev.ts",
     "populate": "ts-node create.ts",
     "prep": "mv env.example .env",
     "start": "ts-node index.ts"

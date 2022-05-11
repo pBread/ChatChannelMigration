@@ -16,7 +16,9 @@ let isSleeping = false;
 const start = Date.now();
 
 const limit = pRateLimit({
-  concurrency: 10,
+  concurrency: 20,
+  interval: 1000,
+  rate: 300,
 });
 
 (async () => {

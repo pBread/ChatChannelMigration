@@ -1,67 +1,78 @@
+import axios from "axios";
 import dotenv from "dotenv";
-import twilio from "twilio";
 import { pRateLimit } from "p-ratelimit";
+import twilio from "twilio";
 
 dotenv.config();
 
 const { ACCOUNT_SID, AUTH_TOKEN, CHAT_SVC_SID } = process.env;
 const client = twilio(ACCOUNT_SID, AUTH_TOKEN);
 
-const channelParkingLot = [];
-const channelConnections = new Set();
-
-const MAX_CONNECTIONS = 20;
-const INTERVAL_MS = 10;
-
-let isStarted = false;
+const MAX_CONCURRENCY = 50;
 
 let counter = 0;
+let limitor = 0;
+
+let concurrency = 0;
 const start = Date.now();
 
 const limit = pRateLimit({
-  concurrency: 10,
+  concurrency: MAX_CONCURRENCY,
   interval: 1000,
-  maxDelay: 2000,
-  rate: 5,
+  rate: 100,
 });
 
 (async () => {
-  // client.chat.v2
-  //   .services("ISXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-  //   .channels.each({ type: "public" }, (channel) => {
-  //     channelParkingLot.push(channel.sid);
-  //     if (!isStarted) startInterval();
-  //   });
+  for (let i = 0; i < 10000; i++) {
+    const channelSids = await client.chat.v2
+      .services(CHAT_SVC_SID)
+      .channels.list({ limit: MAX_CONCURRENCY, type: "public" })
+      .then((channels) => channels.map(({ sid }) => sid));
 
-  for (let i = 0; i < 1; i++) {
-    await limit(() => makeChannel());
+    for (const sid of channelSids) {
+      if (concurrency > MAX_CONCURRENCY) process.exit();
+      try {
+        await Promise.all(
+          channelSids.map((sid) => limit(() => updateChannel(sid)))
+        );
+      } catch (error) {
+        console.error(error);
+        break;
+      }
+    }
   }
 })();
 
-async function makeChannel() {
-  return client.chat.v2.services(CHAT_SVC_SID).channels.create();
-}
-
-async function updateChannel() {
-  // You may need to re-write this. I haven't been able to test it.
-  // Docs: https://www.twilio.com/docs/conversations/api/chat-channel-migration-resource
-
-  const channelSid = channelParkingLot.pop();
-
-  channelConnections.add(channelSid);
-  await client.chat.channels(channelSid).update({ type: "private" });
-  channelConnections.delete(channelSid);
-
-  counter++;
-}
+setInterval(() => {
+  print();
+}, 500);
 
 function print() {
+  const seconds = (Date.now() - start) / 1000;
+
   process.stdout.cursorTo(0);
   process.stdout.write(
-    `Updated: ${counter}; Parking Lot: ${
-      channelParkingLot.length
-    }; Connections: ${channelConnections.size}; Seconds: ${
-      (Date.now() - start) / 1000
-    }`
+    `Concurrency: ${concurrency}; Updated ${counter}; limitor ${limitor}; Seconds: ${seconds.toLocaleString()}; Updates/Sec: ${(
+      counter / seconds
+    ).toFixed(2)};`
   );
+}
+
+async function sleep(ms = 1000) {
+  await new Promise((resolve) => setTimeout(() => resolve(null), ms));
+}
+
+async function updateChannel(channelSid: string) {
+  // Docs: https://www.twilio.com/docs/conversations/api/chat-channel-migration-resource
+
+  const result = await axios.post(
+    `https://chat.twilio.com/v3/Services/${CHAT_SVC_SID}/Channels/${channelSid}`,
+    "Type=private",
+    { auth: { username: ACCOUNT_SID, password: AUTH_TOKEN } }
+  );
+
+  counter++;
+  concurrency = Number(result.headers["twilio-concurrent-requests"]);
+
+  return result;
 }
